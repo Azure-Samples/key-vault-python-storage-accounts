@@ -1,57 +1,87 @@
-# Project Name
+---
+services: key-vault
+platforms: python
+author: schaabs
+---
+# Authentication samples for Azure Key Vault using the Azure Python SDK
 
-(short, 1-3 sentenced, description of the project)
+This Sample repo includes sample code demonstrating common mechanism for managing storage account keys using Key Vault.
 
-## Features
+## Samples in this repo
+* storage_account_sample.py
+  * add_storage_account -- Creates a storage account then adds the storage account to the vault to manage its keys.
+  * update_storage_account -- Updates a storage account in the vault.
+  * regenerate_storage_account_key -- Regenerates a key of a storage account managed by the vault.
+  * get_storage_accounts -- Lists the storage accounts in the vault, and gets each.
+  * delete_storage_account -- Deletes a storage account from a vault.
+* sas_definition_sample.py
+  * create_account_sas_definition -- Creates an account sas definition, to manage storage account and its entities.
+  * create_blob_sas_defintion -- Creates a service SAS definition with access to a blob container.
+  * get_sas_definitions -- List the sas definitions for the storage account, and get each.
 
-This project framework provides the following features:
+## Running The samples
+1. If you don't already have it, [install Python](https://www.python.org/downloads/).
 
-* Feature 1
-* Feature 2
-* ...
+2. We recommend using a [virtual environment](https://docs.python.org/3/tutorial/venv.html) to run this example, but it's not mandatory. You can initialize a virtual environment this way:
 
-## Getting Started
+    ```
+    pip install virtualenv
+    virtualenv mytestenv
+    cd mytestenv
+    source bin/activate
+    ```
 
-### Prerequisites
+3. Clone the repository.
 
-(ideally very short, if any)
+    ```
+    git clone https://github.com/Azure-Samples/key-vault-python-authentication.git
+    ```
 
-- OS
-- Library version
-- ...
+4. Install the dependencies using pip.
 
-### Installation
+    ```
+    cd key-vault-python-storage-accounts
+    pip install -r requirements.txt
+    ```
 
-(ideally very short)
+5. Create an Azure service principal, using 
+[Azure CLI](http://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/),
+[PowerShell](http://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal/)
+or [Azure Portal](http://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/).
 
-- npm install [package name]
-- mvn install
-- ...
+6. Export these environment variables into your current shell. 
 
-### Quickstart
-(Add steps to get up and running quickly)
+    ```
+    export AZURE_TENANT_ID={your tenant id}
+    export AZURE_SUBSCRIPTION_ID={your subscription id}
+    export AZURE_CLIENT_ID={your service principal AppID}
+    export AZURE_CLIENT_SECRET={your service principal secret}
+    ```
 
-1. git clone [repository clone url]
-2. cd [respository name]
-3. ...
+7. Run the samples, optionally specifying a space delimited list of specific samples to run.
 
+    ```
+    python run_sample.py
+    ```
 
-## Demo
+##Note## Certain portions of this sample require authenticated user to execute.  For this reason the sample will prompt
+the user to authenticate with a device code.  For more details see in-line comments in storage_acount_sample.py
 
-A demo app is included to show how to use the project.
+## Minimum Requirements
+Python 2.7, 3.3, or 3.4.
+To install Python, please go to https://www.python.org/downloads/
 
-To run the demo, follow these steps:
+## More information
 
-(Add steps to start up the demo)
+* What is Key Vault? - https://docs.microsoft.com/en-us/azure/key-vault/key-vault-whatis
+* Get started with Azure Key Vault - https://docs.microsoft.com/en-us/azure/key-vault/key-vault-get-started
+* Azure Key Vault General Documentation - https://docs.microsoft.com/en-us/azure/key-vault/
+* Azure Key Vault REST API Reference - https://docs.microsoft.com/en-us/rest/api/keyvault/
+* Azure SDK for Python Documentation - http://azure-sdk-for-python.readthedocs.io/en/latest/
+* Azure Active Directory Documenation - https://docs.microsoft.com/en-us/azure/active-directory/
+  
+# Contributing
 
-1.
-2.
-3.
-
-## Resources
-
-(Any additional resources or related projects)
-
-- Link to supporting information
-- Link to similar sample
-- ...
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information 
+see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) 
+with any additional questions or comments.

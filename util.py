@@ -3,27 +3,16 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import sys
+
 import os
-import time
-import json
-import inspect
-import traceback
-import requests
 import adal
-import azure.mgmt.keyvault.models
-import azure.keyvault.models
 from random import Random
-from key_vault_sample_config import KeyVaultSampleConfig
+import traceback
+from msrestazure.azure_active_directory import ServicePrincipalCredentials
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.keyvault import KeyVaultManagementClient
-from azure.keyvault import KeyVaultClient, KeyVaultAuthentication, AccessToken
-from msrest.exceptions import ClientRequestError
-from msrest.paging import Paged
-from msrest.serialization import Serializer
 from azure.mgmt.keyvault.models import AccessPolicyEntry, VaultProperties, Sku, KeyPermissions, SecretPermissions, \
     CertificatePermissions, StoragePermissions, Permissions, VaultCreateOrUpdateParameters
-from azure.mgmt.authorization import AuthorizationManagementClient
 try:
     import urllib.parse as urlutil
 except:
@@ -49,6 +38,7 @@ def get_name(base, delimiter='-'):
             name += str(_rand.choice(range(10)))
     return name
 
+
 def keyvaultsample(f):
     """
     decorator function for marking key vault sample methods
@@ -63,32 +53,11 @@ def keyvaultsample(f):
         except Exception as e:
             print('ERROR: running sample failed with raised exception:')
             traceback.print_exception(type(e), e, getattr(e, '__traceback__', None))
+            raise e
     wrapper.__name__ = f.__name__
     wrapper.__doc__ = f.__doc__
     wrapper.kv_sample = True
     return wrapper
-
-def run_all_samples(samples):
-    """
-    runs all sample methods (methods marked with @keyvaultsample) on the specified samples objects,
-    filtering to any sample methods specified on the command line
-    :param samples: a list of sample objects
-    :return: None 
-    """
-    requested_samples = sys.argv[1:]
-    sample_funcs = []
-
-    for s in samples:
-        class_samples = {name: func for name, func in s.samples if not requested_samples or name in requested_samples}
-        if class_samples:
-            mod_name = os.path.basename(sys.modules[s.__module__].__file__)
-            print('\n{}:\n'.format(mod_name))
-            for name, func in class_samples.items():
-                print('\t{} -- {}'.format(name, func.__doc__.strip()))
-                sample_funcs.append(func)
-
-    for f in sample_funcs:
-        f()
 
 
 class SampleConfig(object):
@@ -124,63 +93,40 @@ class SampleConfig(object):
         self.tenant_id = os.getenv('AZURE_TENANT_ID', None)
         self.client_id = os.getenv('AZURE_CLIENT_ID', None)
         self.client_secret = os.getenv('AZURE_CLIENT_SECRET', None)
+        self.client_oid = os.getenv('AZURE_CLIENT_OID', None)
         self.location = os.getenv('AZURE_LOCATION', None)
         self.group_name = os.getenv('AZURE_RESOURCE_GROUP', 'azure-key-vault-samples')
-        self.storage_account_name = None
+        self.storage_account_name = os.getenv('AZURE_STORAGE_NAME', None)
+        self.vault_name = os.getenv('AZURE_VAULT_NAME', None)
+        self.mgmt_client_creds = None
+        self.vault = None
+        self.auth_context = None
 
 
 class KeyVaultSampleBase(object):
-    """Base class for Key Vault samples, provides common functionality needed across Key Vault sample code
-
-    :ivar config: Azure subscription id for the user intending to run the sample
-    :vartype config: :class: `KeyVaultSampleConfig`
-    
-    :ivar credentials: Azure Active Directory credentials used to authenticate with Azure services
-    :vartype credentials: :class: `ServicePrincipalCredentials 
-     <msrestazure.azure_active_directory.ServicePrincipalCredentials>`
-    
-    :ivar keyvault_client: Key Vault data client used for interacting with key vaults 
-    :vartype keyvault_client: :class: `KeyVaultClient <azure.keyvault.KeyVaultClient>`
-    
-    :ivar keyvault_mgmt_client: Key Vault management client used for creating and managing key vaults 
-    :vartype keyvault_mgmt_client:  :class: `KeyVaultManagementClient <azure.mgmt.keyvault.KeyVaultManagementClient>`
-    
-    :ivar resource_mgmt_client: Azure resource management client used for managing azure resources, access, and groups 
-    :vartype resource_mgmt_client:  :class: `ResourceManagementClient <azure.mgmt.resource.ResourceManagementClient>`
     """
-    def __init__(self):
-        self.config = KeyVaultSampleConfig()
-        self.credentials = None
-        self.keyvault_client = None
-        self.keyvault_mgmt_client = None
-        self.resource_mgmt_client = None
-        self.storage_mgmt_client = None
-        self.authorization_mgmt_client = None
-        self._setup_complete = False
-        self.samples = {(name, m) for name, m in inspect.getmembers(self) if getattr(m, 'kv_sample', False)}
-        models = {}
-        models.update({k: v for k, v in azure.keyvault.models.__dict__.items() if isinstance(v, type)})
-        models.update({k: v for k, v in azure.mgmt.keyvault.models.__dict__.items() if isinstance(v, type)})
-        self._serializer = Serializer(models)
-        self.auth_context = None
-        self._user_oid = None
-        self._user_id = None
-        self.__vault = None
+    Base class for Key Vault samples, provides common functionality needed across Key Vault sample code
+    """
+    _setup_complete = False
+
+    def __init__(self, config=None):
+        self.config = config or SampleConfig()
+        self.setup_sample()
 
     @property
-    def vault(self):
-        if not self.__vault:
-            self.__vault = self.create_vault()
-        return self.__vault
+    def mgmt_client_creds(self):
+        if not self.config.mgmt_client_creds:
+            self.config.mgmt_client_creds = self.create_client_creds()
+        return self.config.mgmt_client_creds
+
+    def create_client_creds(self):
+        return ServicePrincipalCredentials(client_id=self.config.client_id,
+                                           secret=self.config.client_secret,
+                                           tenant=self.config.tenant_id)
 
     @property
-    def storage_account_name(self):
-        return self.config.storage_account_name
-
-    @storage_account_name.setter
-    def storage_account_name(self, name):
-        self.config.storage_account_name = name
-
+    def sample_vault_url(self):
+        return self.config.vault.properties.vault_uri if self.config.vault else None
 
     def setup_sample(self):
         """
@@ -189,67 +135,86 @@ class KeyVaultSampleBase(object):
          
         :return: None 
         """
-        if not self._setup_complete:
 
-            self.auth_context = adal.AuthenticationContext('https://login.microsoftonline.com/%s' % self.config.tenant_id)
+        if not KeyVaultSampleBase._setup_complete:
 
-            self.resource_mgmt_client = ResourceManagementClient(self.mgmt_creds, self.config.subscription_id)
+            self.config.auth_context = adal.AuthenticationContext('https://login.microsoftonline.com/%s' % self.config.tenant_id)
+
+            resource_mgmt_client = ResourceManagementClient(self.mgmt_client_creds, self.config.subscription_id)
 
             # ensure the service principle has key vault and storage as valid providers
-            self.resource_mgmt_client.providers.register('Microsoft.KeyVault')
-            self.resource_mgmt_client.providers.register('Microsoft.Storage')
+            resource_mgmt_client.providers.register('Microsoft.KeyVault')
+            resource_mgmt_client.providers.register('Microsoft.Storage')
 
             # ensure the intended resource group exists
-            self.resource_mgmt_client.resource_groups.create_or_update(self.config.group_name, {'location': self.config.location})
+            resource_mgmt_client.resource_groups.create_or_update(resource_group_name=self.config.group_name,
+                                                                  parameters={'location': self.config.location})
+            KeyVaultSampleBase._setup_complete = True
 
-            self.keyvault_mgmt_client = KeyVaultManagementClient(self.mgmt_creds, self.config.subscription_id)
+    def grant_access_to_sample_vault(self, vault, oid):
 
-            self.authorization_mgmt_client = AuthorizationManagementClient(self.mgmt_creds, self.config.subscription_id)
+        keyvault_mgmt_client = KeyVaultManagementClient(credentials=self.mgmt_client_creds,
+                                                        subscription_id=self.config.subscription_id)
 
-            self.keyvault_client = KeyVaultClient(KeyVaultAuthentication(authorization_callback=self.authenticate_user))
+        # setup vault permissions for the access policy for the oid
+        permissions = Permissions(keys=KEY_PERMISSIONS_ALL,
+                                  secrets=SECRET_PERMISSIONS_ALL,
+                                  certificates=CERTIFICATE_PERMISSIONS_ALL,
+                                  storage=STORAGE_PERMISSIONS_ALL)
 
-            self._setup_complete = True
+        policy = AccessPolicyEntry(tenant_id=self.config.tenant_id,
+                                   object_id=oid,
+                                   permissions=permissions)
 
+        vault.properties.access_policies.append(policy)
+        return keyvault_mgmt_client.vaults.create_or_update(resource_group_name=self.config.group_name, 
+                                                            vault_name=vault.name, 
+                                                            parameters=vault).result()
 
-
-    def create_vault(self):
+    def get_sample_vault(self):
         """
         Creates a new key vault with a unique name, granting full permissions to the current credentials
         :return: a newly created key vault
         :rtype: :class:`Vault <azure.keyvault.generated.models.Vault>`
         """
-        vault_name = get_name('vault')
 
-        # setup vault permissions for the access policy for the sample service principle
-        permissions = Permissions()
-        permissions.keys = KEY_PERMISSIONS_ALL
-        permissions.secrets = SECRET_PERMISSIONS_ALL
-        permissions.certificates = CERTIFICATE_PERMISSIONS_ALL
-        permissions.storage = STORAGE_PERMISSIONS_ALL
-        
-        policy = AccessPolicyEntry(self.config.tenant_id, self._user_oid, permissions)
+        if not self.config.vault:
 
-        properties = VaultProperties(self.config.tenant_id, Sku(name='standard'), access_policies=[policy])
+            keyvault_mgmt_client = KeyVaultManagementClient(self.mgmt_client_creds, self.config.subscription_id)
 
-        parameters = VaultCreateOrUpdateParameters(self.config.location, properties)
-        parameters.properties.enabled_for_deployment = True
-        parameters.properties.enabled_for_disk_encryption = True
-        parameters.properties.enabled_for_template_deployment = True
+            if self.config.vault_name:
+                vault = keyvault_mgmt_client.vaults.get(resource_group_name=self.config.group_name,
+                                                        vault_name=self.config.vault_name)
+            else:
+                vault_name = get_name('vault')
 
-        print('creating vault {}'.format(vault_name))
+                # setup vault permissions for the access policy for the sample service principle
+                permissions = Permissions(keys=KEY_PERMISSIONS_ALL,
+                                          secrets=SECRET_PERMISSIONS_ALL,
+                                          certificates=CERTIFICATE_PERMISSIONS_ALL,
+                                          storage=STORAGE_PERMISSIONS_ALL)
 
-        vault = self.keyvault_mgmt_client.vaults.create_or_update(self.config.group_name, vault_name, parameters).result()
+                policy = AccessPolicyEntry(tenant_id=self.config.tenant_id,
+                                           object_id=self.config.client_oid,
+                                           permissions=permissions)
 
-        print('created vault {} {}'.format(vault_name, vault.properties.vault_uri))
+                properties = VaultProperties(tenant_id=self.config.tenant_id,
+                                             sku=Sku(name='standard'),
+                                             access_policies=[policy])
 
-        return vault
+                parameters = VaultCreateOrUpdateParameters(location=self.config.location,
+                                                           properties=properties)
+                parameters.properties.enabled_for_deployment = True
+                parameters.properties.enabled_for_disk_encryption = True
+                parameters.properties.enabled_for_template_deployment = True
 
-    def _serialize(self, obj):
-        if isinstance(obj, Paged):
-            serialized = [self._serialize(i) for i in list(obj)]
-        else:
-            serialized = self._serializer.body(obj, type(obj).__name__)
-        return json.dumps(serialized, indent=4, separators=(',', ': '))
+                print('creating vault {}'.format(vault_name))
+
+                vault = keyvault_mgmt_client.vaults.create_or_update(resource_group_name=self.config.group_name,
+                                                                     vault_name=vault_name,
+                                                                     parameters=parameters).result()
+            self.config.vault = vault
+        return self.config.vault
 
 
 adjectives = ['able', 'acid', 'adept', 'aged', 'agile', 'ajar', 'alert', 'alive', 'all', 'ample',
