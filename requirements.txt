@@ -3,7 +3,7 @@ asn1crypto==0.24.0
 azure-common==1.1.10
 azure-keyvault==1.0.0b1
 azure-mgmt-authorization==0.40.0
-azure-mgmt-keyvault==0.40.0
+azure-mgmt-keyvault==1.0.0b1
 azure-mgmt-nspkg==2.0.0
 azure-mgmt-resource==1.2.2
 azure-mgmt-storage==1.5.0

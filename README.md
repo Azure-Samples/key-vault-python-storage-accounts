@@ -55,6 +55,7 @@ or [Azure Portal](http://azure.microsoft.com/documentation/articles/resource-gro
     export AZURE_TENANT_ID={your tenant id}
     export AZURE_SUBSCRIPTION_ID={your subscription id}
     export AZURE_CLIENT_ID={your service principal AppID}
+    export AZURE_CLIENT_OID={your service principal OID}
     export AZURE_CLIENT_SECRET={your service principal secret}
     ```
 

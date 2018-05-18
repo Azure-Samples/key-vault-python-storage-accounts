@@ -166,3 +166,5 @@ class SasDefinitionSample(KeyVaultSampleBase):
             print(sas_def_id.sas_definition, sas_def.template_uri)
 
 
+if __name__ == "__main__":
+    SasDefinitionSample().run_all_samples()
