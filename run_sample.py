@@ -3,6 +3,7 @@ from util import SampleConfig
 from storage_account_sample import StorageAccountSample
 from sas_definition_sample import SasDefinitionSample
 
+
 def run_all_samples():
 
     config = SampleConfig()

@@ -19,6 +19,7 @@ class SasDefinitionSample(KeyVaultSampleBase):
     """
     A collection of samples that demonstrate authenticating with the KeyVaultClient and KeyVaultManagementClient
     """
+
     def __init__(self, config=None):
         from azure.keyvault import KeyVaultClient, KeyVaultAuthentication, AccessToken
         from msrestazure.azure_active_directory import ServicePrincipalCredentials
@@ -106,7 +107,8 @@ class SasDefinitionSample(KeyVaultSampleBase):
         service = BlockBlobService(account_name=self.config.storage_account_name,
                                    # don't sign the template with the storage account key use key 00000000
                                    account_key='00000000')
-        permissions = ContainerPermissions(read=True, write=True, delete=True, list=True)
+        permissions = ContainerPermissions(
+            read=True, write=True, delete=True, list=True)
         temp_token = service.generate_container_shared_access_signature(container_name='blobcontainer',
                                                                         permission=permissions,
                                                                         expiry='2020-01-01')

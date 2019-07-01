@@ -19,6 +19,7 @@ class StorageAccountSample(KeyVaultSampleBase):
     """
     A collection of samples that demonstrate authenticating with the KeyVaultClient and KeyVaultManagementClient
     """
+
     def __init__(self, config=None):
         from azure.keyvault import KeyVaultClient, KeyVaultAuthentication, AccessToken
         from msrestazure.azure_active_directory import ServicePrincipalCredentials
@@ -38,7 +39,8 @@ class StorageAccountSample(KeyVaultSampleBase):
             token = self.get_user_token(resource=resource)
             return AccessToken(scheme=token['tokenType'], token=token['accessToken'], key=None)
 
-        self.keyvault_user_client = KeyVaultClient(KeyVaultAuthentication(authorization_callback=authenticate_user))
+        self.keyvault_user_client = KeyVaultClient(
+            KeyVaultAuthentication(authorization_callback=authenticate_user))
 
         self._user_id = None
         self._user_oid = None
@@ -69,10 +71,12 @@ class StorageAccountSample(KeyVaultSampleBase):
         # authenticated through device login rather than the service principal credentials used
         # in other samples.
         # create the StorageManagementClient with user token credentials
-        user_token_creds = AADTokenCredentials(self.get_user_token('https://management.core.windows.net/'))
+        user_token_creds = AADTokenCredentials(
+            self.get_user_token('https://management.core.windows.net/'))
 
-        print('creating storage account %s'%self.config.storage_account_name)
-        storage_mgmt_client = StorageManagementClient(user_token_creds, self.config.subscription_id)
+        print('creating storage account %s' % self.config.storage_account_name)
+        storage_mgmt_client = StorageManagementClient(
+            user_token_creds, self.config.subscription_id)
 
         # create the storage account
         sa_params = StorageAccountCreateParameters(sku=Sku(SkuName.standard_ragrs),
@@ -88,15 +92,18 @@ class StorageAccountSample(KeyVaultSampleBase):
         print('granting Azure Key Vault the "Storage Account Key Operator Service Role" on the storage account')
         # find the role definition for "Storage Account Key Operator Service Role"
         filter_str = 'roleName eq \'Storage Account Key Operator Service Role\''
-        authorization_mgmt_client = AuthorizationManagementClient(user_token_creds, self.config.subscription_id)
-        role_id = list(authorization_mgmt_client.role_definitions.list(scope='/', filter=filter_str))[0].id
+        authorization_mgmt_client = AuthorizationManagementClient(
+            user_token_creds, self.config.subscription_id)
+        role_id = list(authorization_mgmt_client.role_definitions.list(
+            scope='/', filter=filter_str))[0].id
 
         # create a role assignment granting the key vault service principal this role
         role_params = RoleAssignmentCreateParameters(role_definition_id=role_id,
                                                      # the Azure Key Vault service id
                                                      principal_id='93c27d83-f79b-4cb2-8dd4-4aa716542e74')
         authorization_mgmt_client.role_assignments.create(scope=sa.id,
-                                                          role_assignment_name=str(uuid.uuid4()),
+                                                          role_assignment_name=str(
+                                                              uuid.uuid4()),
                                                           parameters=role_params)
 
         # since the set_storage_account can only be called by a user account with access to the keys of
@@ -108,7 +115,8 @@ class StorageAccountSample(KeyVaultSampleBase):
         self.grant_access_to_sample_vault(vault, self._user_oid)
 
         # add the storage account to the vault using the users KeyVaultClient
-        print('adding storage acount %s to vault %s' % (self.config.storage_account_name, vault.name))
+        print('adding storage acount %s to vault %s' %
+              (self.config.storage_account_name, vault.name))
         attributes = StorageAccountAttributes(enabled=True)
         self.keyvault_user_client.set_storage_account(vault_base_url=self.sample_vault_url,
                                                       storage_account_name=sa.name,
@@ -177,7 +185,8 @@ class StorageAccountSample(KeyVaultSampleBase):
         """
         Deletes a storage account from a vault.
         """
-        print('deleting storage account %s from the vault' % self.config.storage_account_name)
+        print('deleting storage account %s from the vault' %
+              self.config.storage_account_name)
         self.keyvault_sp_client.delete_storage_account(vault_base_url=self.sample_vault_url,
                                                        storage_account_name=self.config.storage_account_name)
 
